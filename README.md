@@ -1,6 +1,6 @@
 # **geedataextract**
 
-This package includes functions to download environmental and remote sensing data from Google Earth Engine, using the GEE python API. Environmental data can be extracted at the nearest pixel to a point or spatially averaged over pixels around a buffer from a point or within a polygon. Shapefiles of points or polygons must be [uploaded to GEE](https://developers.google.com/earth-engine/importing) in your [assets folder](https://code.earthengine.google.com/). Data tables will be automatically downloaded to your Google Drive. Functions exist for downloading environmental data related to land cover, topograpy, soil condition, climate, soil moisture (SMOS), and landsat & MODIS vegetation indices/products. A complete tutorial in jupyter notebooks can be found [here](https://www.pbgjam.org/products#Tutorials/). This package was developed under the support of the National Aeronautics and Space Administration's Advanced Information Systems Technology Program [(award number AIST-16-0052)](https://esto.nasa.gov/files/solicitations/AIST_16/ROSES2016_AIST_A41_awards.html#swenson) and the National Science Foundation [(award number 1754443)](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1754443&HistoricalAwards=false). This package is still preliminary; we are constantly making updates and improvements. Please email me with any comments or suggestions at aschwantes@gmail.com.
+This package includes functions to download environmental and remote sensing data from Google Earth Engine, using the GEE python API. Environmental data can be extracted at the nearest pixel to a point or spatially averaged over pixels around a buffer from a point or within a polygon. Shapefiles of points or polygons must be [uploaded to GEE](https://developers.google.com/earth-engine/importing) in your [assets folder](https://code.earthengine.google.com/). Data tables will be automatically downloaded to your Google Drive. Functions exist for downloading environmental data related to land cover, topography, soil condition, climate, soil moisture (SMOS), and Landsat & MODIS vegetation indices/products. A complete tutorial in jupyter notebooks can be found [here](https://www.pbgjam.org/products#Tutorials/). This package was developed under the support of the National Aeronautics and Space Administration's Advanced Information Systems Technology Program [(award number AIST-16-0052)](https://esto.nasa.gov/files/solicitations/AIST_16/ROSES2016_AIST_A41_awards.html#swenson) and the National Science Foundation [(award number 1754443)](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1754443&HistoricalAwards=false). This package is still preliminary; we are constantly making updates and improvements. Please email me with any comments or suggestions at aschwantes@gmail.com.
 
 > suggested citation: Schwantes, Amanda M., Chase Nuñez. (2019). geeDataExtract. Python package version 0.0.1.
 
@@ -15,7 +15,7 @@ conda install -c conda-forge google-api-python-client
 ```
 conda install -c conda-forge earthengine-api
 ```
-3.  Initialize the API and verify your account settings. This will open a web-browser. Login to your gmail account and copy/paste the key from the web-browser into the Command Promt. You will need to login to the gmail account that you
+3.  Initialize the API and verify your account settings. This will open a web-browser. Login to your Gmail account and copy/paste the key from the web-browser into the Command Prompt. You will need to login to the Gmail account that you
 used to sign up for Google Earth Engine.
 ```
 earthengine authenticate
@@ -37,7 +37,7 @@ python -c "import ee; ee.Initialize()"
   + To reduce the file size of the output tables, location information is removed. The geeID field is required to restore location information.
 
 
-* **Set your username**. Each function has a parameter called "username", which must be specified. Your GEE username is typically your gmail adress. Look in the asset folder under users to verify [here](https://code.earthengine.google.com/).
+* **Set your username**. Each function has a parameter called "username", which must be specified. Your GEE username is typically your Gmail address. Look in the asset folder under users to verify [here](https://code.earthengine.google.com/).
 
 
 * **To obtain data at points or spatial averages within polygons use the parameters buf and poly.** If you want the nearest pixel to an uploaded shapefile of points, then set buf = 0 and poly = 0. If you want a spatial average from a buffer around each point, then specify a value for buf in meters. For example, poly = 0 and buf = 1000, would give a spatial average of the pixels within a 1000 m radius circle around each point in your uploaded shapefile. If you want a spatial average within polygons for an uploaded shapefile of polygons, then set buf = 0 and poly = 1.
@@ -46,7 +46,7 @@ python -c "import ee; ee.Initialize()"
 * **Consider using the 'scalePix' parameter**.
 
   + If you need to take a spatial average across a plot, then you will need to consider the scale of the imagery. If the size of your plot/polygon is much smaller than the spatial resolution of your imagery (scale) then reduce the scale, by using the optional parameter 'scalePix'. Or provide centroids for your plots instead of taking a spatial average. GEE functions take the weighted average within a polygon; however any pixels that are not 50% within the polygon are not included in the averaging. If your scale is much larger than your plot, all your output tables will be full of NAs.
-  + Similiarly, to take a value at a point, for environmental data at fine-scales, we'd recommend reducing the 'scalePix'. If the scalepix is set to the resolution of the environmental data (the default in our functions), GEE functions will often give a value of a point that is shifted by up to the value of scalePix. Therefore, if you want to avoid a point shift, then reduce 'scalePix' to a value less than the spatial resolution of the dataset (the default in our functions).
+  + Similarly, to take a value at a point, for environmental data at fine-scales, we'd recommend reducing the 'scalePix'. If the scalepix is set to the resolution of the environmental data (the default in our functions), GEE functions will often give a value of a point that is shifted by up to the value of scalePix. Therefore, if you want to avoid a point shift, then reduce 'scalePix' to a value less than the spatial resolution of the dataset (the default in our functions).
 
 ### Below we provide descriptions for downloading data as well as suggested citations
 
@@ -79,7 +79,7 @@ Proper citations depend on the NLCD product:
 Source data is from the SRTM Digital Elevation Data 30m product. More info found __[here](https://www2.jpl.nasa.gov/srtm/)__. The GEE ImageCollection ID is 'USGS/SRTMGL1_003'.
 
 
-The function __GEEtopoPts()__ calculates topograpy metrics:
+The function __GEEtopoPts()__ calculates topography metrics:
 > elevation (meters)  
 > slope (radians)  
 > aspect (radians)  
@@ -106,7 +106,7 @@ The function __GEEsoilPts()__ calculates soil metrics (depth weighted averages t
 > 'bulkDensity' = Bulk density (fine earth) in kg / cubic-meter  
 > 'soilDepth' = Absolute depth to bedrock (in cm)  
 
-Suborder classes for the USDA and WRB classifications are also available. Specifyng these metrics will calculate suborder class at a point or the mode within a polygon or buffer around a point. The legends for the USDA 2014 suborder classes can be found here: ftp://ftp.soilgrids.org/legends/TAXOUSDA.txt and the WRB 2006 subgroup classes can be found here: ftp://ftp.soilgrids.org/legends/TAXNWRB.txt.
+Suborder classes for the USDA and WRB classifications are also available. Specifying these metrics will calculate suborder class at a point or the mode within a polygon or buffer around a point. The legends for the USDA 2014 suborder classes can be found here: ftp://ftp.soilgrids.org/legends/TAXOUSDA.txt and the WRB 2006 subgroup classes can be found here: ftp://ftp.soilgrids.org/legends/TAXNWRB.txt.
 
 > 'subordersUS' = Predicted USDA 2014 suborder classes (as integers)  
 > 'subordersWorld' = Predicted WRB 2006 subgroup classes (as integers)  
@@ -220,7 +220,7 @@ All the functions below can be used to download remote sensing data. Unless othe
 
 Caution, if you select 'lowest' for no temporal averaging then it may take a very long time to calculate your time-series.
 
-Also, if you take monthly or annual averages, we are not interpolating before averaging. Therefore, in cloudy areas, this may not be good practise. Instead, use the lowest or monthly time-step for averaging and either exclude data points when there is too much missing data, and/or take averages after interpolating the missing data.
+Also, if you take monthly or annual averages, we are not interpolating before averaging. Therefore, in cloudy areas, this may not be good practice. Instead, use the lowest or monthly time-step for averaging and either exclude data points when there is too much missing data, and/or take averages after interpolating the missing data.
 
 ## Soil Moisture from SMOS
 
@@ -243,7 +243,7 @@ The __GEEsmos()__ function calculates the temporal average as well as a spatial 
 
 ## Landsat Vegetation Indices
 
-Source data from: USGS Landsat 4,5,7,& 8 Surface Reflectance Tier 1 products. The GEE ImageCollection ID is 'LANDSAT/LT04/C01/T1_SR' (Landsat 4), 'LANDSAT/LT05/C01/T1_SR' (Landsat 5), 'LANDSAT/LE07/C01/T1_SR' (Landsat 7), and 'LANDSAT/LC08/C01/T1_SR' (Landsat 8).  Please see landsat surface reflectance product guides for [Landsat 4-7](https://www.usgs.gov/media/files/landsat-4-7-surface-reflectance-code-ledaps-product-guide) and [Landsat 8](https://www.usgs.gov/media/files/landsat-8-surface-reflectance-code-lasrc-product-guide).
+Source data from: USGS Landsat 4,5,7,& 8 Surface Reflectance Tier 1 products. The GEE ImageCollection ID is 'LANDSAT/LT04/C01/T1_SR' (Landsat 4), 'LANDSAT/LT05/C01/T1_SR' (Landsat 5), 'LANDSAT/LE07/C01/T1_SR' (Landsat 7), and 'LANDSAT/LC08/C01/T1_SR' (Landsat 8).  Please see Landsat surface reflectance product guides for [Landsat 4-7](https://www.usgs.gov/media/files/landsat-4-7-surface-reflectance-code-ledaps-product-guide) and [Landsat 8](https://www.usgs.gov/media/files/landsat-8-surface-reflectance-code-lasrc-product-guide).
 
 The __GEEviLandsat()__ function calculates the temporal average as well as a spatial average either at a single point, within a buffer from a point or within a polygon.
 
@@ -288,7 +288,7 @@ Also, click __[here](https://lpdaac.usgs.gov/citing_our_data)__ for additional s
 
 ## MODIS LAI and FPAR
 
-Source data from NASA's MCD15A3H.006 MODIS Leaf Area Index/FPAR 4-Day Global 500m product. This product considerers data from both sensors Terra and Aqua. More info can be found __[here](https://lpdaac.usgs.gov/products/mcd15a3hv006/)__. The GEE ImageCollection ID is "MODIS/006/MCD15A3H".
+Source data from NASA's MCD15A3H.006 MODIS Leaf Area Index/FPAR 4-Day Global 500m product. This product considers data from both sensors Terra and Aqua. More info can be found __[here](https://lpdaac.usgs.gov/products/mcd15a3hv006/)__. The GEE ImageCollection ID is "MODIS/006/MCD15A3H".
 
 The function __GEElaiMODIS()__, calculates the temporal average of LAI and fpar as well as a spatial average either at a single point, within a buffer from a point or within a polygon.
 
@@ -311,13 +311,13 @@ Click __[here](https://lpdaac.usgs.gov/citing_our_data)__ for suggestions on how
 
 # MODIS NDVI and EVI
 
-Source data from NASA's MOD13Q1.006 Terra Vegetation Indices 16-Day Global 250m product. This product considerers data only from the Terra sensor. More info can be found __[here](https://lpdaac.usgs.gov/products/mod13q1v006/)__.  The GEE ImageCollection ID is "MODIS/006/MOD13Q1".
+Source data from NASA's MOD13Q1.006 Terra Vegetation Indices 16-Day Global 250m product. This product considers data only from the Terra sensor. More info can be found __[here](https://lpdaac.usgs.gov/products/mod13q1v006/)__.  The GEE ImageCollection ID is "MODIS/006/MOD13Q1".
 
 The function __GEEviMODIS()__ calculates the temporal average of NDVI and EVI as well as a spatial average either at a single point, within a buffer from a point or within a polygon.
 
 #### The following metrics can be selected:
 
-> 'NDVI' = Normalized Difference Vegegation Index  
+> 'NDVI' = Normalized Difference Vegetation Index  
 > 'EVI' = Enhanced Vegetation Index
 
 Use the QC parameter to specify if only good quality pixels should be included in averaging using the QC flags specific for each pixel within an image.
@@ -361,7 +361,7 @@ Citations:
 
 > Huffman, G.J., 1997: "Estimates of Root-Mean-Square Random Error for Finite Samples of Estimated Precipitation", J. Appl. Meteor., 1191-1201.  
 
-> Huffman, G.J., 2012:  Algorithm Theoretical Basis Document (ATBD) Version 3.0 for the NASA Global Precipitation Measurement (GPM) Integrated Multi-satellitE Retrievals for GPM (I-MERG).  GPM Project, Greenbelt, MD, 29 pp.  
+> Huffman, G.J., 2012:  Algorithm Theoretical Basis Document (ATBD) Version 3.0 for the NASA Global Precipitation Measurement (GPM) Integrated Multi-satellite Retrievals for GPM (I-MERG).  GPM Project, Greenbelt, MD, 29 pp.  
 
 > Huffman, G.J., R.F. Adler, P. Arkin, A. Chang, R. Ferraro, A. Gruber, J. Janowiak, A. McNab, B. Rudolph, U. Schneider, 1997: The Global Precipitation Climatology Project (GPCP) Combined Precipitation Dataset, Bul. Amer. Meteor. Soc., 78, 5-20.  
 
@@ -468,3 +468,4 @@ Best practice when averaging across months is to only output 10 years at a time.
 Citations:
 
 > Abatzoglou J.T. and Brown T.J., A comparison of statistical downscaling methods suited for wildfire applications, International Journal of Climatology(2012) doi: https://doi.org/10.1002/joc.2312.  
+
