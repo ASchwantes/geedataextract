@@ -1511,7 +1511,7 @@ def GEEviLandsat(ptsFile,metric,timeStep,sensor,buf,poly,username,folderOut, sca
                     
                 #print('value at point: no buffer for Landsat: ' + sen + '_' + met)
 
-def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix = 500):
+def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix = 500,startYear = None,endYear = None):
     """    
     Calculates LAI and fpar at point OR mean within buffer of point if buf > 0 OR mean within polygon if poly = 1
     
@@ -1544,6 +1544,12 @@ def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
     Optional parameters
 
     scalePix - scale/spatial resolution. Default: 500
+    
+    startYear - The start of the time-series (year)
+
+    endYear - The end of the time-series (year)
+    
+    If you don't specify the startYear and endYear the default is to download the entire time-series
     
     """
         
@@ -1585,16 +1591,42 @@ def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
                          .first())
     firstImageDate = firstImage.get('system:index').getInfo()
       
-    startYear = int(firstImageDate[0:4])
-    endYear = int(lastImageDate[0:4])
-    startMonth = int(firstImageDate[5:7])
-    endMonth = int(lastImageDate[5:7])-1
-    startYearAll = startYear + 1
-    endYearAll = endYear - 1
+    if all([startYear is None,endYear is None]):
+        startYear = int(firstImageDate[0:4])
+        endYear = int(lastImageDate[0:4])
+        startMonth = int(firstImageDate[5:7])
+        endMonth = int(lastImageDate[5:7])-1
+        startYearAll = startYear + 1
+        endYearAll = endYear - 1
                         
-    years = list(range(startYear, endYearAll + 1))
-    monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
-    yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+        years = list(range(startYear, endYearAll + 1))
+        monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
+        yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+        
+    elif all([startYear >= 0,endYear >= 0]):
+        startYearReal = int(firstImageDate[0:4])
+        endYearReal = int(lastImageDate[0:4]) 
+        
+        years = list(range(max(startYearReal,startYear), (min(endYearReal,endYear) + 1)))
+    
+        if endYear >= endYearReal:
+            endMonth = int(lastImageDate[5:7])-1
+            endYearReal2 = endYearReal-1
+            years2 = len(years)-1
+        elif endYear < endYearReal:
+            endMonth = 0
+            endYearReal2 = endYearReal
+            years2 = len(years)
+            
+        if startYear <= startYearReal:
+            startMonth = int(firstImageDate[5:7])
+            startYearReal2 = startYearReal+1
+        elif startYear > startYearReal:
+            startMonth = 0
+            startYearReal2 = startYearReal
+        
+        monthsEE = ee.List(list(range(startMonth,(12*years2+endMonth))))
+        yearsEE = ee.List(list(range(max(startYearReal2,startYear), (min(endYearReal2,endYear) + 1))))
 
     time_d = {}
     time_d['lowest'] = 'rl'
@@ -1683,10 +1715,14 @@ def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
                 return filtered
 
             img_col1 = ee.ImageCollection(monthsEE.map(map_m).flatten())
-
-        elif timeStep == 'lowest':
+            
+        elif all([timeStep == 'lowest',endYear is None, startYear is None]):
 
             img_col1 = modisLAIn
+            
+        elif all([timeStep == 'lowest',endYear > 0, startYear > 0]):
+
+            img_col1 = modisLAIn.filter(ee.Filter.calendarRange(startYear, endYear, 'year'))
 
         #else:
             #print("incorrect time step specified")
@@ -1716,7 +1752,7 @@ def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_MCD15A3H_'+str(met)+'_ptsB',
+                                                    description = time_d[timeStep]+'_MCD15A3H_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_ptsB',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -1743,7 +1779,7 @@ def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_MCD15A3H_'+str(met)+'_poly1',
+                                                    description = time_d[timeStep]+'_MCD15A3H_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_poly1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -1769,14 +1805,14 @@ def GEElaiMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_MCD15A3H_'+str(met)+'_pts1',
+                                                    description = time_d[timeStep]+'_MCD15A3H_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_pts1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
                 
             #print('value at point: no buffer for: ' + met)
 
-def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix = 1000):
+def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix = 1000,startYear = None,endYear = None):
     """    
     Calculates land surface temperature at point OR mean within buffer of point if buf > 0 OR mean within polygon if poly = 1
     Calculates all available years
@@ -1808,6 +1844,12 @@ def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
     Optional parameters
 
     scalePix - scale/spatial resolution. Default: 1000
+    
+    startYear - The start of the time-series (year)
+
+    endYear - The end of the time-series (year)
+    
+    If you don't specify the startYear and endYear the default is to download the entire time-series
     
     """
         
@@ -1898,17 +1940,44 @@ def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
                          .sort('system:time_start',True)
                          .first())
         firstImageDate = firstImage.get('system:index').getInfo()
-      
-        startYear = int(firstImageDate[0:4])
-        endYear = int(lastImageDate[0:4])
-        startMonth = int(firstImageDate[5:7])
-        endMonth = int(lastImageDate[5:7])-1
-        startYearAll = startYear + 1
-        endYearAll = endYear - 1
 
-        years = list(range(startYear, endYearAll + 1))
-        monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
-        yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+        if all([startYear is None,endYear is None]):
+            startYear = int(firstImageDate[0:4])
+            endYear = int(lastImageDate[0:4])
+            startMonth = int(firstImageDate[5:7])
+            endMonth = int(lastImageDate[5:7])-1
+            startYearAll = startYear + 1
+            endYearAll = endYear - 1
+
+            years = list(range(startYear, endYearAll + 1))
+            monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
+            yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+            
+        elif all([startYear >= 0,endYear >= 0]):
+            startYearReal = int(firstImageDate[0:4])
+            endYearReal = int(lastImageDate[0:4]) 
+            
+            years = list(range(max(startYearReal,startYear), (min(endYearReal,endYear) + 1)))
+        
+            if endYear >= endYearReal:
+                endMonth = int(lastImageDate[5:7])-1
+                endYearReal2 = endYearReal-1
+                years2 = len(years)-1
+            elif endYear < endYearReal:
+                endMonth = 0
+                endYearReal2 = endYearReal
+                years2 = len(years)
+                
+            if startYear <= startYearReal:
+                startMonth = int(firstImageDate[5:7])
+                startYearReal2 = startYearReal+1
+            elif startYear > startYearReal:
+                startMonth = 0
+                startYearReal2 = startYearReal
+            
+            monthsEE = ee.List(list(range(startMonth,(12*years2+endMonth))))
+            yearsEE = ee.List(list(range(max(startYearReal2,startYear), (min(endYearReal2,endYear) + 1))))
+
 
         if timeStep == 'year':
 
@@ -1943,10 +2012,14 @@ def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
                 return filtered
 
             img_col1 = ee.ImageCollection(monthsEE.map(map_m).flatten())
-
-        elif timeStep == 'lowest':
+          
+        elif all([timeStep == 'lowest',endYear is None, startYear is None]):
 
             img_col1 = modisLSTn
+            
+        elif all([timeStep == 'lowest',endYear > 0, startYear > 0]):
+
+            img_col1 = modisLSTn.filter(ee.Filter.calendarRange(startYear, endYear, 'year'))
 
         #else:
             #print("incorrect time step specified")
@@ -1976,7 +2049,7 @@ def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_'+lst_n[metL[0]]+'_'+str(met)+'_ptsB',
+                                                    description = time_d[timeStep]+'_'+lst_n[metL[0]]+'_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_ptsB',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -2003,7 +2076,7 @@ def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_'+lst_n[metL[0]]+'_'+str(met)+'_poly1',
+                                                    description = time_d[timeStep]+'_'+lst_n[metL[0]]+'_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_poly1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -2029,14 +2102,14 @@ def GEElstMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_'+lst_n[metL[0]]+'_'+str(met)+'_pts1',
+                                                    description = time_d[timeStep]+'_'+lst_n[metL[0]]+'_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_pts1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
                 
             #print('value at point: no buffer for LST: ' + met)
 
-def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix = 250):
+def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix = 250,startYear = None,endYear = None):
     """    
     Calculates NDVI or EVI at point OR mean within buffer of point if buf > 0 OR mean within polygon if poly = 1
     Calculates all available years.
@@ -2067,6 +2140,12 @@ def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix
     Optional parameters
 
     scalePix - scale/spatial resolution. Default: 250
+    
+    startYear - The start of the time-series (year)
+
+    endYear - The end of the time-series (year)
+    
+    If you don't specify the startYear and endYear the default is to download the entire time-series
     
     """
         
@@ -2108,17 +2187,43 @@ def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix
                          .sort('system:time_start',True)
                          .first())
     firstImageDate = firstImage.get('system:index').getInfo()
-      
-    startYear = int(firstImageDate[0:4])
-    endYear = int(lastImageDate[0:4])
-    startMonth = int(firstImageDate[5:7])
-    endMonth = int(lastImageDate[5:7])-1
-    startYearAll = startYear + 1
-    endYearAll = endYear - 1
+    
+    if all([startYear is None,endYear is None]):
+        startYear = int(firstImageDate[0:4])
+        endYear = int(lastImageDate[0:4])
+        startMonth = int(firstImageDate[5:7])
+        endMonth = int(lastImageDate[5:7])-1
+        startYearAll = startYear + 1
+        endYearAll = endYear - 1
 
-    years = list(range(startYear, endYearAll + 1))
-    monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
-    yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+        years = list(range(startYear, endYearAll + 1))
+        monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
+        yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+        
+    elif all([startYear >= 0,endYear >= 0]):
+        startYearReal = int(firstImageDate[0:4])
+        endYearReal = int(lastImageDate[0:4]) 
+        
+        years = list(range(max(startYearReal,startYear), (min(endYearReal,endYear) + 1)))
+    
+        if endYear >= endYearReal:
+            endMonth = int(lastImageDate[5:7])-1
+            endYearReal2 = endYearReal-1
+            years2 = len(years)-1
+        elif endYear < endYearReal:
+            endMonth = 0
+            endYearReal2 = endYearReal
+            years2 = len(years)
+            
+        if startYear <= startYearReal:
+            startMonth = int(firstImageDate[5:7])
+            startYearReal2 = startYearReal+1
+        elif startYear > startYearReal:
+            startMonth = 0
+            startYearReal2 = startYearReal
+        
+        monthsEE = ee.List(list(range(startMonth,(12*years2+endMonth))))
+        yearsEE = ee.List(list(range(max(startYearReal2,startYear), (min(endYearReal2,endYear) + 1))))
     
     for met in metric:
         modisVI = ee.ImageCollection('MODIS/006/MOD13Q1')
@@ -2186,10 +2291,14 @@ def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix
                 return filtered
 
             img_col1 = ee.ImageCollection(monthsEE.map(map_m).flatten())
-
-        elif timeStep == 'lowest':
+        
+        elif all([timeStep == 'lowest',endYear is None, startYear is None]):
 
             img_col1 = modisVIn
+            
+        elif all([timeStep == 'lowest',endYear > 0, startYear > 0]):
+
+            img_col1 = modisVIn.filter(ee.Filter.calendarRange(startYear, endYear, 'year'))
 
         #else:
             #print("incorrect time step specified")
@@ -2219,7 +2328,7 @@ def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_MOD13Q1_'+str(met)+'_ptsB',
+                                                    description = time_d[timeStep]+'_MOD13Q1_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_ptsB',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -2246,7 +2355,7 @@ def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_MOD13Q1_'+str(met)+'_poly1',
+                                                    description = time_d[timeStep]+'_MOD13Q1_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_poly1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -2272,14 +2381,14 @@ def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = time_d[timeStep]+'_MOD13Q1_'+str(met)+'_pts1',
+                                                    description = time_d[timeStep]+'_MOD13Q1_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_pts1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
                 
             #print('value at point: no buffer for: ' + met)
 
-def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 25000):
+def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 25000,startYear = None,endYear = None):
     """    
     Calculates soil moisture at point OR mean within buffer of point if buf > 0 OR mean within polygon if poly = 1
 
@@ -2293,7 +2402,7 @@ def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 2500
         'smp' = Soil moisture profile (fraction, 0-1)
 
     timeStep - time step for temporal averaging, either 'lowest','month', OR 'year'
-        
+    
     buf - specifies the radius of the buffer (meters) to add around each point. For no buffer, use buf = 0. 
 
     poly - If your ptsfile contains polygons, then specify poly = 1; otherwise use poly = 0.
@@ -2305,6 +2414,12 @@ def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 2500
     Optional parameters    
 
     scalePix - scale/spatial resolution. Default: 25000
+    
+    startYear - The start of the time-series (year)
+
+    endYear - The end of the time-series (year)
+    
+    If you don't specify the startYear and endYear the default is to download the entire time-series
     
     """
         
@@ -2333,17 +2448,43 @@ def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 2500
                          .sort('system:time_start',True)
                          .first())
     firstImageDate = firstImage.get('system:index').getInfo()
-      
-    startYear = int(firstImageDate[(len(firstImageDate)-8):(len(firstImageDate)-4)])
-    endYear = int(lastImageDate[(len(lastImageDate)-8):(len(lastImageDate)-4)])
-    startMonth = int(firstImageDate[(len(firstImageDate)-4):(len(firstImageDate)-2)])
-    endMonth = int(lastImageDate[(len(lastImageDate)-4):(len(lastImageDate)-2)])-1
-    startYearAll = startYear + 1
-    endYearAll = endYear - 1
-                        
-    years = list(range(startYear, endYearAll + 1))
-    monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
-    yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+     
+    #startMonth - 1, because time-series starts on Jan 1
+    #startYearAll: did't add one, for same reason
+    if all([startYear is None,endYear is None]):
+        startYear = int(firstImageDate[(len(firstImageDate)-8):(len(firstImageDate)-4)])
+        endYear = int(lastImageDate[(len(lastImageDate)-8):(len(lastImageDate)-4)])
+        startMonth = int(firstImageDate[(len(firstImageDate)-4):(len(firstImageDate)-2)])-1
+        endMonth = int(lastImageDate[(len(lastImageDate)-4):(len(lastImageDate)-2)])-1
+        startYearAll = startYear
+        endYearAll = endYear - 1
+        
+        years = list(range(startYear, endYearAll + 1))
+        monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
+        yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+        
+    elif all([startYear >= 0,endYear >= 0]):
+        startYearReal = int(firstImageDate[(len(firstImageDate)-8):(len(firstImageDate)-4)])
+        endYearReal = int(lastImageDate[(len(lastImageDate)-8):(len(lastImageDate)-4)]) 
+        
+        years = list(range(max(startYearReal,startYear), (min(endYearReal,endYear) + 1)))
+    
+        if endYear >= endYearReal:
+            endMonth = int(lastImageDate[(len(lastImageDate)-4):(len(lastImageDate)-2)])-1
+            endYearReal2 = endYearReal-1
+            years2 = len(years)-1
+        elif endYear < endYearReal:
+            endMonth = 0
+            endYearReal2 = endYearReal
+            years2 = len(years)
+            
+        if startYear <= startYearReal:
+            startMonth = int(firstImageDate[(len(firstImageDate)-4):(len(firstImageDate)-2)])-1
+        elif startYear > startYearReal:
+            startMonth = 0
+        
+        monthsEE = ee.List(list(range(startMonth,(12*years2+endMonth))))
+        yearsEE = ee.List(list(range(max(startYearReal,startYear), (min(endYearReal2,endYear) + 1))))
     
     for met in metric:
         SMOS = ee.ImageCollection('NASA_USDA/HSL/soil_moisture').select(met)
@@ -2383,9 +2524,13 @@ def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 2500
 
             img_col = ee.ImageCollection(monthsEE.map(map_m).flatten())
 
-        elif timeStep == 'lowest':
+        elif all([timeStep == 'lowest',endYear is None, startYear is None]):
 
             img_col = SMOS
+            
+        elif all([timeStep == 'lowest',endYear > 0, startYear > 0]):
+
+            img_col = SMOS.filter(ee.Filter.calendarRange(startYear, endYear, 'year'))
 
         #else:
             #print("incorrect time step specified")
@@ -2413,7 +2558,7 @@ def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 2500
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = str(time_d[timeStep])+'_SMOS_'+str(met)+'_ptsB',
+                                                    description = str(time_d[timeStep])+'_SMOS_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_ptsB',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -2440,7 +2585,7 @@ def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 2500
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = str(time_d[timeStep])+'_SMOS_'+str(met)+'_poly1',
+                                                    description = str(time_d[timeStep])+'_SMOS_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_poly1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
@@ -2466,7 +2611,7 @@ def GEEsmos(ptsFile,metric,timeStep,buf,poly,username,folderOut, scalePix = 2500
             task_tc = ee.batch.Export.table.toDrive(collection = triplets
                                                     .filter(ee.Filter.neq('mean', None))
                                                     .select(['.*'],None,False),
-                                                    description = str(time_d[timeStep])+'_SMOS_'+str(met)+'_pts1',
+                                                    description = str(time_d[timeStep])+'_SMOS_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_pts1',
                                                     folder = folderOut,
                                                     fileFormat = 'CSV')
             task_tc.start()
