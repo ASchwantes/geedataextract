@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="geedataextract",
-    version="0.0.1",
+    version="0.0.2",
     author="Amanda Schwantes",
     author_email="aschwantes@gmail.com",
     license='MIT',
@@ -13,7 +13,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ASchwantes/geedataextract",
-    packages=setuptools.find_packages(),
+    packages=['geedataextract'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
@@ -22,3 +22,4 @@ setuptools.setup(
     ],
     python_requires='>=3.5',
 )
+#setuptools.find_packages()
