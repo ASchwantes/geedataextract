@@ -492,7 +492,7 @@ def GEEtopoPts(ptsFile,metric,buf,poly,username,folderOut, scalePix = 30):
         aspect: (radians) unless spatial average then two outputs will be produced
             aspect_sin: Sum of the sin(aspect)
             aspect_cos: Sum of the cos(aspect)
-            You can then later take the cicular average using atan2(aspectSinSum, aspectCosSum)
+            You can then later take the circular average using atan2(aspectSinSum, aspectCosSum)
        
     buf - specifies the radius of the buffer (meters) to add around each point. For no buffer, use buf = 0. 
 
@@ -697,7 +697,7 @@ def GEEgridmetPtsAvg(ptsFile,metric,startYear,endYear,timeStep,buf,poly,username
 
     buf - specifies the radius of the buffer (meters) to add around each point. For no buffer, use buf = 0. 
 
-    poly - If your ptsfile contails polygons, then specify poly = 1; otherwise use poly = 0.
+    poly - If your ptsfile contains polygons, then specify poly = 1; otherwise use poly = 0.
 
     username - Specify your GEE username as a string.
     
@@ -1268,7 +1268,7 @@ def GEEviLandsat(ptsFile,metric,timeStep,sensor,buf,poly,username,folderOut, sca
 
     timeStep - time step for temporal averaging, either 'lowest','month', OR 'year'
 
-    sensor - list of Landsat sensors: seperate files will be exported for each sensor specified ['L4','L5','L7','L8']
+    sensor - list of Landsat sensors: separate files will be exported for each sensor specified ['L4','L5','L7','L8']
         L4: Landsat 4 images taken from Aug 22, 1982 to Dec 14, 1993
         L5: Landsat 5 images taken from Jan 1, 1984 to May 5, 2012
         L7: Landsat 7 images taken from Jan 1, 1999 to present
@@ -2830,7 +2830,7 @@ def GEEnasaNEXGDDP(ptsFile,metric,timeStep,startYear,endYear,scenarios,buf,poly,
         'CanESM2', 'CCSM4', 'CESM1-BGC', 'CNRM-CM5', 'CSIRO-Mk3-6-0',
         'GFDL-CM3', 'GFDL-ESM2G', 'GFDL-ESM2M', 'inmcm4', 'IPSL-CM5A-LR',
         'IPSL-CM5A-MR', 'MIROC-ESM', 'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR',
-        'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M']. Defualt is all models.
+        'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M']. Default is all models.
 
     scalePix - scale/spatial resolution. Default: 25000
     
