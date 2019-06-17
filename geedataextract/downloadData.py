@@ -2119,7 +2119,7 @@ def GEEviMODIS(ptsFile,metric,timeStep,buf,poly,QC, username,folderOut, scalePix
     ptsfile - file name of uploaded shapefile to GEE.
 
     metric - list of metrics to include: ['NDVI', 'EVI']
-        'NDVI' = Normalized Difference Vegegation Index
+        'NDVI' = Normalized Difference Vegetation Index
         'EVI' = Enhanced Vegetation Index
 
     timeStep - time step for temporal averaging, either 'lowest','month', OR 'year'
