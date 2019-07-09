@@ -3698,3 +3698,280 @@ def GEEmacaGCMs(ptsFile,metric,timeStep,startYear,endYear,scenarios,buf,poly,mod
                     task_tc.start()
                             
                     #print('value at point: no buffer for MACA: ' + met + ' ' + scenario + ' ' + model)
+
+             
+def GEEetMODIS(ptsFile,metric,timeStep,buf,poly,QC,username,folderOut, scalePix = 1000, startYear = None, endYear = None):
+    """    
+    Calculates ET/PET at point OR mean within buffer of point if buf > 0 OR mean within polygon if poly = 1
+    Calculates all available years.
+    
+    Requires:
+    
+    ptsfile - file name of uploaded shapefile to GEE.
+
+    metric - list can include: ['ET', 'PET']
+        ET (kg/m^2) Evapotranspiration
+        PET (kg/m^2) Potential evapotranspiration
+
+    timeStep - time step for temporal averaging, either 'lowest','month',OR 'year'
+                   
+    buf - specifies the radius of the buffer (meters) to add around each point. For no buffer, use buf = 0. 
+
+    poly - If your ptsfile contains polygons, then specify poly = 1; otherwise use poly = 0.
+
+    QC - define which poor-quality pixels should be masked
+        'None': no masking of poor quality data
+        'Op1': We only included pixels that satisfied the following conditions: (1) pixels overall of good quality, (2) 'Detectors apparently fine for up to 50% of channels 1, 2', and (3) 'Significant clouds NOT present (clear)'
+
+    username - Specify your GEE username as a string.
+    
+    folderOut - Output folder name on google drive.
+    
+    Optional parameters
+
+    scalePix - scale/spatial resolution. Default: 1000
+    
+    startYear - The start of the time-series (year)
+
+    endYear - The end of the time-series (year)
+    
+    If you don't specify the startYear and endYear the default is to download the entire time-series
+    
+    """
+      
+    # load required libraries
+    import ee
+    import math
+    
+    # Initialize the Earth Engine object, using the authentication credentials.
+    ee.Initialize()
+
+    ID_field = "geeID"
+
+    #load pts or poly file
+    pts1 = ee.FeatureCollection('users/' + username + '/' + str(ptsFile))
+    
+    #Computes the bits we need to extract.
+    def getQABits(image, start, end, newName):
+        pattern = 0
+        listB = list(range(start, end+1))
+        for one in listB:
+            pattern += math.pow(2, one)
+            pattern = int(pattern)
+    
+        return (image.select([0], [newName])
+                  .bitwiseAnd(pattern)
+                  .rightShift(start))
+
+    time_d = {}
+    time_d['lowest'] = 'rl'
+    time_d['month'] = 'rm'
+    time_d['year'] = 'ry'
+    
+    for met in metric:
+        modisET = ee.ImageCollection('MODIS/006/MOD16A2')
+        metL = [met]
+        
+        def maskbyBits1(img):
+            QA = img.select('ET_QC')
+            QA1 = getQABits(QA, 0, 0, 'QA')
+            QA2 = getQABits(QA, 2, 2, 'QA')
+            QA3 = getQABits(QA, 3, 4, 'QA')
+            QA4 = getQABits(QA, 5, 7, 'QA')
+            mask = QA1.eq(0).And(QA2.eq(0)).And(QA3.eq(0)).And(QA4.lt(4))
+            return img.updateMask(mask)
+
+        if QC == 'None':
+            modisETn = modisET
+        elif QC == 'Op1':
+            modisETn = modisET.map(maskbyBits1)
+        #modify so that divT gets calculated as 8, if date < 12/26
+        #and gets a value of either 5 or 6 accordingly if >
+        #also update start and end year
+        def scale1(img):
+            
+            daysT = ee.Number(ee.Date(img.date().get('year').format().cat('-12-31')).getRelative('day','year')).add(1)
+            divT = daysT.subtract(img.date().getRelative('day','year')).min(8)
+                     
+            return (img.select(metL[0])
+                    .float()
+                    .multiply(0.1)
+                    .divide(divT)
+                    .copyProperties(img,['system:time_start','system:time_end']))
+        
+        modisETm = modisETn.map(scale1)
+        
+        lastImage = ee.Image(ee.ImageCollection('MODIS/006/MOD16A2')
+                         .sort('system:time_start',False)
+                         .first())
+        lastImageDate = lastImage.get('system:index').getInfo()
+
+        firstImage = ee.Image(ee.ImageCollection('MODIS/006/MOD16A2')
+                         .sort('system:time_start',True)
+                         .first())
+        firstImageDate = firstImage.get('system:index').getInfo()
+
+        if all([startYear is None,endYear is None]):
+            startYear = int(firstImageDate[0:4])
+            endYear = int(lastImageDate[0:4])
+            startMonth = int(firstImageDate[5:7])
+            endMonth = int(lastImageDate[5:7])-1
+            startYearAll = startYear + 1
+            endYearAll = endYear - 1
+
+            years = list(range(startYear, endYearAll + 1))
+            monthsEE = ee.List(list(range(startMonth,(12*len(years)+endMonth))))
+            yearsEE = ee.List(list(range(startYearAll, endYearAll + 1)))
+            
+        elif all([startYear >= 0,endYear >= 0]):
+            startYearReal = int(firstImageDate[0:4])
+            endYearReal = int(lastImageDate[0:4]) 
+            
+            years = list(range(max(startYearReal,startYear), (min(endYearReal,endYear) + 1)))
+        
+            if endYear >= endYearReal:
+                endMonth = int(lastImageDate[5:7])-1
+                endYearReal2 = endYearReal-1
+                years2 = len(years)-1
+            elif endYear < endYearReal:
+                endMonth = 0
+                endYearReal2 = endYearReal
+                years2 = len(years)
+                
+            if startYear <= startYearReal:
+                startMonth = int(firstImageDate[5:7])
+                startYearReal2 = startYearReal+1
+            elif startYear > startYearReal:
+                startMonth = 0
+                startYearReal2 = startYearReal
+            
+            monthsEE = ee.List(list(range(startMonth,(12*years2+endMonth))))
+            yearsEE = ee.List(list(range(max(startYearReal2,startYear), (min(endYearReal2,endYear) + 1))))
+
+        if timeStep == 'year':
+
+            def map_m(i):
+                i = ee.Number(i).int()
+                image2 = (modisETm
+                    .filter(ee.Filter.calendarRange(i, i, 'year'))
+                    .first())
+                filtered = (modisETm
+                    .filter(ee.Filter.calendarRange(i, i, 'year'))
+                    .mean()
+                    .copyProperties(image2,['system:time_start','system:time_end']))
+                return filtered
+
+            img_col = ee.ImageCollection(yearsEE.map(map_m).flatten())
+
+        elif timeStep == 'month':
+            
+            def map_m(i):
+                i = ee.Number(i)
+                y = i.divide(12).add(years[0]).int()
+                m = i.mod(12).add(1)
+                image2 = (modisETm
+                    .filter(ee.Filter.calendarRange(m, m, 'month'))
+                    .filter(ee.Filter.calendarRange(y, y, 'year'))
+                    .first())
+                filtered = (modisETm
+                    .filter(ee.Filter.calendarRange(m, m, 'month'))
+                    .filter(ee.Filter.calendarRange(y, y, 'year'))
+                    .mean()
+                    .copyProperties(image2,['system:time_start','system:time_end']))
+                return filtered
+
+            img_col = ee.ImageCollection(monthsEE.map(map_m).flatten())
+
+        elif all([timeStep == 'lowest',endYear is None, startYear is None]):
+
+            img_col = modisETm
+            
+        elif all([timeStep == 'lowest',endYear > 0, startYear > 0]):
+
+            img_col = modisETm.filter(ee.Filter.calendarRange(startYear, endYear, 'year'))
+
+        #else:
+        #    print("incorrect time step specified")
+        
+        if buf > 0:
+            bufL = [buf]
+            def bufferPoly(feature):
+                return feature.buffer(bufL[0])
+
+            ptsB = pts1.map(bufferPoly)
+            def table_m(image):
+                table = (image
+                    .select(metL[0])
+                    .reduceRegions(collection = ptsB.select([ID_field]),
+                                    reducer = ee.Reducer.mean(),
+                                    scale = scalePix))
+                        
+                def table_add_date(f):
+                    return f.set('startDate', ee.Date(image.get('system:time_start')))
+
+                return table.map(table_add_date)
+
+            triplets = img_col.map(table_m).flatten()
+
+            task_tc = ee.batch.Export.table.toDrive(collection = triplets
+                                                    .filter(ee.Filter.neq('mean', None))
+                                                    .select(['.*'],None,False),
+                                                    description = time_d[timeStep]+'_MOD16A2_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_ptsB',
+                                                    folder = folderOut,
+                                                    fileFormat = 'CSV')
+            task_tc.start()
+    
+    
+            #print ('buffered pts by:' + str(buf) + ' for: ' + met)
+
+        elif poly > 0:
+            
+            def table_m(image):
+                table = (image
+                    .select(metL[0])
+                    .reduceRegions(collection = pts1.select([ID_field]),
+                                    reducer = ee.Reducer.mean(),
+                                    scale = scalePix))
+                        
+                def table_add_date(f):
+                    return f.set('startDate', ee.Date(image.get('system:time_start')))
+
+                return table.map(table_add_date)
+
+            triplets = img_col.map(table_m).flatten()
+
+            task_tc = ee.batch.Export.table.toDrive(collection = triplets
+                                                    .filter(ee.Filter.neq('mean', None))
+                                                    .select(['.*'],None,False),
+                                                    description = time_d[timeStep]+'_MOD16A2_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_poly1',
+                                                    folder = folderOut,
+                                                    fileFormat = 'CSV')
+            task_tc.start()
+    
+    
+            #print ('spatial mean in poly: no buffer for: ' + met)
+
+        else:
+            def table_m(image):
+                table = (image
+                    .select(metL[0])
+                    .reduceRegions(collection = pts1.select([ID_field]),
+                                    reducer = ee.Reducer.mean(),
+                                    scale = scalePix))
+                        
+                def table_add_date(f):
+                    return f.set('startDate', ee.Date(image.get('system:time_start')))
+
+                return table.map(table_add_date)
+
+            triplets = img_col.map(table_m).flatten()
+
+            task_tc = ee.batch.Export.table.toDrive(collection = triplets
+                                                    .filter(ee.Filter.neq('mean', None))
+                                                    .select(['.*'],None,False),
+                                                    description = time_d[timeStep]+'_MOD16A2_'+str(met)+'_'+str(years[0])+'_'+str(years[len(years)-1])+'_pts1',
+                                                    folder = folderOut,
+                                                    fileFormat = 'CSV')
+            task_tc.start()
+                
+            #print('value at point: no buffer for: ' + met)
